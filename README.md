@@ -37,27 +37,6 @@ The codebase is modular, cleanly separating the physics engine, the neural netwo
 
 ---
 
-## ⚙️ Hyperparameters
-
-### SAC Agent (Reinforcement Learning)
-- **Learning Rate**: `3e-4`
-- **Discount Factor (Gamma)**: `0.99`
-- **Soft Update (Tau)**: `0.005`
-- **Batch Size**: `256`
-- **History Length (k)**: `10` (The agent evaluates sequences of 10 consecutive frames).
-- **Exploration Noise**: Ornstein-Uhlenbeck (OU) Noise with `sigma = 0.15` and `theta = 0.15` to ensure temporally correlated, smooth physical exploration.
-
-### PINN Surrogate (Physics-Informed Training)
-- **Architecture**: 3 Hidden Layers (128 units each) with `Tanh` activations.
-- **Adam Optimization**: `10,000` Epochs, Learning Rate `1e-4`, Batch Size `4096`.
-- **L-BFGS Optimization**: `2,000` Epochs, Learning Rate `0.1`, Fixed Dataset Batch `20,000`.
-- **Loss Weights**: 
-  - Data Loss (MSE against RK4) = `1.0`
-  - Physics Residual Loss = `0.1` (Dynamically clamped)
-  - Physical Bounds Penalty = `1000.0` (For enforcing positive mass/temperature).
-
----
-
 ## 🚀 Usage Guide
 
 ### 1. Installation
