@@ -1,4 +1,4 @@
-# Surrogate-PINN-SAC-Controller
+# Surrogate-PINN-trained-SAC-Controller
 
 An asynchronous, multiprocess Reinforcement Learning architecture designed for optimal control of a chemical Urea Reactor. This project replaces a computationally expensive numerical ODE solver with a fast **Hybrid Physics-Informed Neural Network (PINN) Surrogate**, which acts as a simulated, high-fidelity environment to train a **Soft Actor-Critic (SAC)** agent.
 
