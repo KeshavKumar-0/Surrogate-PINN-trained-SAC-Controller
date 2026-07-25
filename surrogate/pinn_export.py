@@ -56,8 +56,10 @@ def calculate_reward(state, action_latent, prev_action_latent, feed, done):
     M, T, c_u, c_w, c_b = state
     F_in, T_in, c_u_in = feed
     if done:
-        return -10.0
-    revenue = min(max(0.0, (c_u - c_u_in) * 50.0), 20.0)
+        extreme_biuret = max(0.0, c_b - 0.02) * 1000.0
+        extreme_temp = max(0.0, max(75.0 - T, T - 140.0)) * 10.0
+        return -10.0 - float(np.log1p(extreme_biuret)) - float(np.log1p(extreme_temp))
+    revenue = min(max(0.0, (c_u - c_u_in) * 100.0), 30.0)
     Q_physical, _ = latent_to_physical(action_latent)
     cost_thermal = abs(Q_physical / 20000.0) * 1.0
     cost_pressure = abs(action_latent[1] - -0.5) * 2.0
@@ -70,7 +72,8 @@ def calculate_reward(state, action_latent, prev_action_latent, feed, done):
         quality_penalty = 0.0
         target_tracking_bonus += 1.0
     else:
-        quality_penalty = min((c_b - 0.008) / 0.012 * 5.0, 5.0)
+        excess_biuret = (c_b - 0.008) * 1000.0
+        quality_penalty = float(np.log1p(excess_biuret))
     net_profit = revenue - opex - quality_penalty + target_tracking_bonus
     return 1.0 + net_profit
 

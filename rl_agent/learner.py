@@ -12,7 +12,7 @@ import torch.optim as optim
 import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from communication.ipc_bus import get_context, create_pull_socket, create_weight_pub_socket
-from rl_agent.networks import SACActor, SACCritic
+from rl_agent.networks import SACActor, SACCritic, extract_actor_obs
 from rl_agent.buffer import FrameStackBuffer
 GAMMA = 0.99
 TAU = 0.005
@@ -58,8 +58,9 @@ Provides state and behavior for SACLearner."""
 
     def __init__(self, state_dim=8, action_dim=2, k=10):
         self.hist_dim = k * (state_dim + action_dim)
+        self.actor_hist_dim = k * (5 + action_dim)  # Observable states (M, T, F_in, T_in, c_u_in)
         self.action_dim = action_dim
-        self.actor = SACActor(self.hist_dim, action_dim)
+        self.actor = SACActor(self.actor_hist_dim, action_dim)
         self.critic = SACCritic(self.hist_dim, action_dim)
         self.critic_target = SACCritic(self.hist_dim, action_dim)
         self.critic_target.load_state_dict(self.critic.state_dict())
@@ -82,7 +83,8 @@ Provides state and behavior for SACLearner."""
         normalized_rewards = np.array([self.reward_normalizer.normalize(r) for r in reward_np], dtype=np.float32).reshape(-1, 1)
         reward_batch = torch.FloatTensor(normalized_rewards)
         with torch.no_grad():
-            next_state_action, next_state_log_pi = self.actor.sample(next_state_batch)
+            actor_next_state_batch = extract_actor_obs(next_state_batch)
+            next_state_action, next_state_log_pi = self.actor.sample(actor_next_state_batch)
             qf1_next_target, qf2_next_target = self.critic_target(next_state_batch, next_state_action)
             min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.log_alpha.exp() * next_state_log_pi
             next_q_value = reward_batch + mask_batch * GAMMA * min_qf_next_target
@@ -94,7 +96,9 @@ Provides state and behavior for SACLearner."""
         qf_loss.backward()
         torch.nn.utils.clip_grad_norm_(self.critic.parameters(), GRAD_CLIP)
         self.critic_optim.step()
-        pi, log_pi = self.actor.sample(state_batch)
+        
+        actor_state_batch = extract_actor_obs(state_batch)
+        pi, log_pi = self.actor.sample(actor_state_batch)
         qf1_pi, qf2_pi = self.critic(state_batch, pi)
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
         policy_loss = (self.log_alpha.exp() * log_pi - min_qf_pi).mean()

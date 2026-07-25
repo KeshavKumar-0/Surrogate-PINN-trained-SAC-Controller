@@ -17,18 +17,37 @@ STD_FEED = torch.tensor([5.0, 20.0, 0.15])
 MEAN_ACTS = torch.tensor([0.0, 0.0])
 STD_ACTS = torch.tensor([1.0, 1.0])
 
-MEAN_FRAME = torch.cat([MEAN_STATES, MEAN_FEED, MEAN_ACTS])
-STD_FRAME = torch.cat([STD_STATES, STD_FEED, STD_ACTS])
+MEAN_FRAME_CRITIC = torch.cat([MEAN_STATES, MEAN_FEED, MEAN_ACTS])
+STD_FRAME_CRITIC = torch.cat([STD_STATES, STD_FEED, STD_ACTS])
 
-def normalize_history(history_tensor):
+MEAN_FRAME_ACTOR = torch.cat([MEAN_STATES[0:2], MEAN_FEED, MEAN_ACTS])
+STD_FRAME_ACTOR = torch.cat([STD_STATES[0:2], STD_FEED, STD_ACTS])
+
+def extract_actor_obs(batch_tensor):
+    """Slices the fully-privileged 10-dim frame to the observable 7-dim frame for the Actor."""
+    device = batch_tensor.device
+    batch_size = batch_tensor.shape[0]
+    k = batch_tensor.shape[-1] // 10
+    
+    reshaped = batch_tensor.view(batch_size, k, 10)
+    indices = torch.tensor([0, 1, 5, 6, 7, 8, 9], device=device)
+    sliced = torch.index_select(reshaped, dim=2, index=indices)
+    return sliced.view(batch_size, k * 7)
+
+def normalize_history(history_tensor, is_actor=False):
     """Normalizes the unrolled history buffer of states and actions."""
     device = history_tensor.device
     input_dim = history_tensor.shape[-1]
-    k = input_dim // 10
     
-    # Broadcast repeating frame stats across the history sequence
-    mean = MEAN_FRAME.to(device).repeat(k)
-    std = STD_FRAME.to(device).repeat(k)
+    if is_actor:
+        k = input_dim // 7
+        mean = MEAN_FRAME_ACTOR.to(device).repeat(k)
+        std = STD_FRAME_ACTOR.to(device).repeat(k)
+    else:
+        k = input_dim // 10
+        mean = MEAN_FRAME_CRITIC.to(device).repeat(k)
+        std = STD_FRAME_CRITIC.to(device).repeat(k)
+        
     return (history_tensor - mean) / std
 
 def weights_init_(m):
@@ -51,7 +70,7 @@ Provides state and behavior for SACActor."""
 
     def forward(self, state):
         """Executes forward operations."""
-        state = normalize_history(state)
+        state = normalize_history(state, is_actor=True)
         x = self.net(state)
         mean = self.mean_linear(x)
         log_std = self.log_std_linear(x)
@@ -84,7 +103,7 @@ Provides state and behavior for SACCritic."""
 
     def forward(self, state, action):
         """Executes forward operations."""
-        state = normalize_history(state)
+        state = normalize_history(state, is_actor=False)
         sa = torch.cat([state, action], dim=-1)
         q1 = self.q1_net(sa)
         q2 = self.q2_net(sa)

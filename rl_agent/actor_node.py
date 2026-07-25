@@ -46,16 +46,16 @@ Provides state and behavior for OUNoise."""
 def main():
     """Executes main operations."""
     k = 10
-    state_dim = 8
+    actor_state_dim = 5  # Observable: M, T, F_in, T_in, c_u_in
     action_dim = 2
-    hist_dim = state_dim + action_dim
-    actor = SACActor(input_dim=k * hist_dim, action_dim=action_dim)
+    actor_hist_dim = actor_state_dim + action_dim
+    actor = SACActor(input_dim=k * actor_hist_dim, action_dim=action_dim)
     actor.eval()
     rep_plant = create_control_rep_socket()
     sub_weights = create_weight_sub_socket()
     poller = zmq.Poller()
     poller.register(sub_weights, zmq.POLLIN)
-    history_queue = collections.deque([np.zeros(hist_dim, dtype=np.float32)] * k, maxlen=k)
+    history_queue = collections.deque([np.zeros(actor_hist_dim, dtype=np.float32)] * k, maxlen=k)
     exploration_noise = OUNoise(action_dim, sigma=0.15)
     step_count = 0
     try:
@@ -69,10 +69,12 @@ def main():
             state_np = np.frombuffer(state_bytes, dtype=np.float32)
             if state_np[0] == 0.0:
                 history_queue.clear()
-                history_queue.extend([np.zeros(hist_dim, dtype=np.float32)] * k)
+                history_queue.extend([np.zeros(actor_hist_dim, dtype=np.float32)] * k)
                 exploration_noise.reset()
+            
+            observable_state = state_np[[0, 1, 5, 6, 7]]
             prev_action = history_queue[-1][-action_dim:]
-            current_frame = np.concatenate([state_np, prev_action])
+            current_frame = np.concatenate([observable_state, prev_action])
             history_queue.append(current_frame)
             stacked_input = np.concatenate(list(history_queue))
             state_tensor = torch.FloatTensor(stacked_input).unsqueeze(0)
