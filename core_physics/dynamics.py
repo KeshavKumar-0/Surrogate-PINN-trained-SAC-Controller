@@ -7,7 +7,13 @@ from .thermodynamics import celsius_to_kelvin, calc_mixture_cp, calc_p_nh3
 
 def compute_odes(state, action, feed_conditions):
     """Executes compute_odes operations."""
-    M, T, c_u, c_w, c_b = state.unbind(dim=-1)
+    # Clamp state to prevent NaNs during L-BFGS line search evaluations
+    M = torch.clamp(state[..., 0], min=10.0)
+    T = torch.clamp(state[..., 1], min=10.0)
+    c_u = state[..., 2]
+    c_w = state[..., 3]
+    c_b = state[..., 4]
+    
     Q, P = action.unbind(dim=-1)
     F_in = feed_conditions['F_in']
     T_in = feed_conditions['T_in']

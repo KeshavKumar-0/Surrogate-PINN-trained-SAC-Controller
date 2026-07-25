@@ -56,12 +56,15 @@ def train_surrogate():
         if epoch % 500 == 0:
             print(f'Adam Epoch {epoch:5d} | Total Loss: {loss.item():.6e}')
     print('\nPhase 2: L-BFGS Optimization')
+    
+    lbfgs_batch_size = min(20000, dataset['states'].shape[0])
+    idx = torch.randperm(dataset['states'].shape[0])[:lbfgs_batch_size]
+    state_k = dataset['states'][idx]
+    action_k = dataset['actions'][idx]
+    feed_k = dataset['feeds'][idx]
+    true_next = dataset['next_states'][idx]
+    
     for epoch in range(epochs_lbfgs):
-        idx = torch.randperm(dataset['states'].shape[0])[:batch_size]
-        state_k = dataset['states'][idx]
-        action_k = dataset['actions'][idx]
-        feed_k = dataset['feeds'][idx]
-        true_next = dataset['next_states'][idx]
 
         def closure():
             """Executes closure operations."""
